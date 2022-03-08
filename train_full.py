@@ -28,9 +28,7 @@ def train(args):
     # -- Loading Dataset
     print('\nLoad Dataset')    
     loader = Loader(dir_path=args.dir_path, validation_ratio=0.1, seed=args.seed)
-    dset = loader.get()
-    train_dset, validation_dset = dset['train'], dset['validation']
-    dset = concatenate_datasets([train_dset, validation_dset]).shuffle(seed=args.seed)
+    dset = loader.get_total()
 
     # -- Device
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')

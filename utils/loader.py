@@ -68,6 +68,10 @@ class Loader :
 
         return datasets
 
+    def get_total(self, ) :
+        dset = self.convert_dataset(self.dataset).shuffle(self.seed)
+        return dset
+
     def convert_dataset(self, dataset) :
         l_list, h_list, f_list = [], [], []
 
