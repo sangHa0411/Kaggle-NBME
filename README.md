@@ -1,6 +1,6 @@
 # Kaggle-NBME
-Kaggle NBME Competition Code
-URL : https://www.kaggle.com/c/nbme-score-clinical-patient-notes/overview/evaluation
+  1. Kaggle NBME Competition Code
+  2. URL : https://www.kaggle.com/c/nbme-score-clinical-patient-notes/overview/evaluation
 
 ## 목표
   1. Kaggle NBME 대회 참가
