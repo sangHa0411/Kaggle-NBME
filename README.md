@@ -1,8 +1,11 @@
 # Kaggle-NBME
 Kaggle NBME Competition Code
+URL : https://www.kaggle.com/c/nbme-score-clinical-patient-notes/overview/evaluation
 
 ## 목표
   1. Kaggle NBME 대회 참가
+  2. **Token Classification에 대해서 공부하고 모델 성능 고도화해보기**
+  3. 모델 개발 뿐만 아니라 전처리 및 후처리를 잘 응용해보기
 
 ## 대회 개요
   1. 의사는 환자의 불편하거나 아픈 점에 대해서 기록을 한다.
@@ -23,11 +26,10 @@ Kaggle NBME Competition Code
   1. offset_mapping을 통한 전처리하기
   2. AutoModelForTokenClassification, AutoConfig, AutoTokenizer을 이용한 대회에 맞는 모델 및 토크나이저 불러오기
   3. 토큰 단위의 결과를 후처리를 통해서 글자단위의 답으로 변경하기
-  4. 결과 제출은 csv 파일이 아니라 ipynb로 작성해서 kaggle에 맞춰서 구현하기
+  4. **결과 제출은 csv 파일이 아니라 ipynb로 작성해서 kaggle에 맞춰서 구현하기**
 
 ## 사용하는 모델
   1. Base Model : roberta-large 모델 기반의 tokenclassificaion 모델 사용
-
 
 ## Argument
 |Argument|Description|Default|
@@ -56,5 +58,5 @@ Kaggle NBME Competition Code
 ## Terminal Command Example
   ```
   # training 
-  python train.py --PLM roberta-large --dir_path ./data --lr 2e-5 --output_dir ./exp --epochs 5 --weight_decay 1e-3
+  python train.py --PLM roberta-large --dir_path ./data --output_dir ./exp --epochs 5 --lr 2e-5 --warmup_steps 500 --weight_decay 1e-3 --eval_ratio 0.2
   ```
