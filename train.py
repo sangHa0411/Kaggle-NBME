@@ -126,8 +126,8 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=5, help='number of epochs to train (default: 5)')
     parser.add_argument('--train_batch_size', type=int, default=4, help='train batch size (default: 4)')
     parser.add_argument('--weight_decay', type=float, default=1e-3, help='strength of weight decay (default: 1e-3)')
-    parser.add_argument('--warmup_steps', type=int, default=200, help='number of warmup steps for learning rate scheduler (default: 200)')
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=1, help='gradient_accumulation_steps (default: 1)')
+    parser.add_argument('--warmup_steps', type=int, default=300, help='number of warmup steps for learning rate scheduler (default: 300)')
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=2, help='gradient_accumulation_steps (default: 2)')
 
     # -- validation arguments
     parser.add_argument('--eval_ratio', type=float, default=0.2, help='evaluation ratio (default: 0.2)')

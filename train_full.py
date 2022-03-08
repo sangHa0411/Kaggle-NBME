@@ -12,7 +12,6 @@ from utils.preprocessor import Preprocessor
 from utils.collator import DataCollatorForTraining
 
 from dotenv import load_dotenv
-from datasets import concatenate_datasets
 from transformers import (AutoTokenizer, 
     AutoConfig, 
     AutoModelForTokenClassification,
