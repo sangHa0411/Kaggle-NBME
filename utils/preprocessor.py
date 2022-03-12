@@ -21,7 +21,8 @@ class Preprocessor :
             truncation=True,
         )
 
-        label_dset = []
+        flag_list = []
+        label_list = []
         mapping = model_inputs.pop("offset_mapping")
         for i in range(size) :
             locations = dataset['locations'][i]
@@ -30,11 +31,14 @@ class Preprocessor :
             sep_token_index = input_ids.index(self.tokenizer.sep_token_id)
 
             if len(locations) == 0 :
-                labels = np.zeros(len(input_ids)).astype('int')
-                labels[sep_token_index:] = self.label_pad_token_id
+                labels = np.ones(len(input_ids)).astype('int') * self.label_pad_token_id
+                # labels = np.zeros(len(input_ids)).astype('int')
+                # labels[sep_token_index:] = self.label_pad_token_id
+                flag_list.append(0)
             else :
                 labels = np.zeros(len(input_ids)).astype('int')
                 labels[sep_token_index:] = self.label_pad_token_id
+                flag_list.append(1)
                 
                 for loc in locations :
                     token_start_index = 1
@@ -50,7 +54,8 @@ class Preprocessor :
                             token_end_index -= 1
 
                         labels[token_start_index-1:token_end_index+1] = 1
-            label_dset.append(labels)
+            label_list.append(labels)
             
-        model_inputs['labels'] = label_dset
+        model_inputs['flags'] = flag_list
+        model_inputs['labels'] = label_list
         return model_inputs

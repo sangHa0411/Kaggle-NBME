@@ -1,8 +1,20 @@
 
 import torch
 import torch.nn as nn 
-from transformers.modeling_outputs import TokenClassifierOutput
+from dataclasses import dataclass
+from typing import Optional, Tuple
+from transformers.file_utils import ModelOutput
 from transformers.models.roberta.modeling_roberta import RobertaPreTrainedModel, RobertaModel
+
+
+@dataclass
+class ClassifierOutput(ModelOutput):
+    loss: Optional[torch.FloatTensor] = None
+    token_logits: torch.FloatTensor = None
+    sequence_logits: torch.FloatTensor = None
+    hidden_states: Optional[Tuple[torch.FloatTensor]] = None
+    attentions: Optional[Tuple[torch.FloatTensor]] = None
+
 
 class RobertaForTokenClassification(RobertaPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
@@ -12,12 +24,13 @@ class RobertaForTokenClassification(RobertaPreTrainedModel):
         super().__init__(config)
         self.num_labels = config.num_labels
 
-        self.roberta = RobertaModel(config, add_pooling_layer=False)
+        self.roberta = RobertaModel(config, add_pooling_layer=True)
         classifier_dropout = (
             config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
         )
         self.dropout = nn.Dropout(classifier_dropout)
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
+        self.cls_classifier = nn.Linear(config.hidden_size, 1)
 
     def forward(
         self,
@@ -28,6 +41,7 @@ class RobertaForTokenClassification(RobertaPreTrainedModel):
         head_mask=None,
         inputs_embeds=None,
         labels=None,
+        flags=None,
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
@@ -46,27 +60,30 @@ class RobertaForTokenClassification(RobertaPreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
+        token_output = outputs[0]
+        sequence_output = outputs[1]
 
-        sequence_output = outputs[0]
+        token_output = self.dropout(token_output)
+        token_logits = self.classifier(token_output)
 
-        sequence_output = self.dropout(sequence_output)
-        logits = self.classifier(sequence_output)
-
+        sequence_logits = self.cls_classifier(sequence_output)
+        
         loss = None
         if labels is not None:
-            device = sequence_output.device
-            class_weights = torch.tensor([0.2, 0.8], dtype=torch.float32).to(device)
-            loss_fct = nn.CrossEntropyLoss(weight=class_weights)
-
-            loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+            loss_fct = nn.CrossEntropyLoss()
+            loss = loss_fct(token_logits.view(-1, self.num_labels), labels.view(-1))
+            if flags is not None :
+                loss_bn = nn.BCEWithLogitsLoss()
+                loss += loss_bn(sequence_logits.squeeze(-1), flags.float())
 
         if not return_dict:
-            output = (logits,) + outputs[2:]
+            output = (token_logits, sequence_logits,) + outputs[2:]
             return ((loss,) + output) if loss is not None else output
 
-        return TokenClassifierOutput(
+        return ClassifierOutput(
             loss=loss,
-            logits=logits,
+            token_logits=token_logits,
+            sequence_logits=sequence_logits,
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
