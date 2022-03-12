@@ -1,9 +1,10 @@
 import numpy as np
 
 class Preprocessor :
-    def __init__(self, tokenizer, max_length) :
+    def __init__(self, tokenizer, max_length, label_pad_token_id=-100) :
         self.tokenizer = tokenizer
         self.max_length = max_length
+        self.label_pad_token_id = label_pad_token_id
 
     def __call__(self, dataset) :
         size = len(dataset['history'])
@@ -26,10 +27,15 @@ class Preprocessor :
             locations = dataset['locations'][i]
             input_ids = model_inputs['input_ids'][i]
 
+            sep_token_index = input_ids.index(self.tokenizer.sep_token_id)
+
             if len(locations) == 0 :
                 labels = np.zeros(len(input_ids)).astype('int')
+                labels[sep_token_index:] = self.label_pad_token_id
             else :
-                labels = []
+                labels = np.zeros(len(input_ids)).astype('int')
+                labels[sep_token_index:] = self.label_pad_token_id
+                
                 for loc in locations :
                     token_start_index = 1
                     token_end_index = input_ids.index(self.tokenizer.sep_token_id) - 1
@@ -43,12 +49,7 @@ class Preprocessor :
                         while(token_end_index >= token_start_index and org_end < mapping[i][token_end_index][1]) :
                             token_end_index -= 1
 
-                    label_vector = np.zeros(len(input_ids))
-                    label_vector[token_start_index-1:token_end_index+1] = 1
-                    labels.append(label_vector)
-
-                labels = np.sum(labels, axis=0)
-                labels = list(np.where(labels>0.0, 1, 0))
+                        labels[token_start_index-1:token_end_index+1] = 1
             label_dset.append(labels)
             
         model_inputs['labels'] = label_dset

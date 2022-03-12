@@ -51,7 +51,7 @@ def train(args):
     training_args = TrainingArguments(
         output_dir=args.output_dir,                                     # output directory
         overwrite_output_dir=True,                                      # overwrite output directory
-        save_total_limit=5,                                             # number of total save model.
+        save_total_limit=3,                                             # number of total save model.
         save_steps=args.save_steps,                                     # model saving step.
         num_train_epochs=args.epochs,                                   # total number of training epochs
         learning_rate=args.lr,                                          # learning_rate
@@ -110,9 +110,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # -- directory
-    parser.add_argument('--output_dir', default='./exp', help='trained model output directory')
-    parser.add_argument('--logging_dir', default='./logs', help='logging directory')
-    parser.add_argument('--dir_path', default='./data/', help='train data directory path')
+    parser.add_argument('--output_dir', default='exp', help='trained model output directory')
+    parser.add_argument('--logging_dir', default='logs', help='logging directory')
+    parser.add_argument('--dir_path', default='data', help='train data directory path')
     
     # -- plm
     parser.add_argument('--PLM', type=str, default='roberta-large', help='model type (default: roberta-large)')
@@ -123,7 +123,7 @@ if __name__ == '__main__':
 
     # -- training arguments
     parser.add_argument('--lr', type=float, default=3e-5, help='learning rate (default: 3e-5)')
-    parser.add_argument('--epochs', type=int, default=5, help='number of epochs to train (default: 5)')
+    parser.add_argument('--epochs', type=int, default=3, help='number of epochs to train (default: 5)')
     parser.add_argument('--train_batch_size', type=int, default=4, help='train batch size (default: 4)')
     parser.add_argument('--weight_decay', type=float, default=1e-3, help='strength of weight decay (default: 1e-3)')
     parser.add_argument('--warmup_steps', type=int, default=300, help='number of warmup steps for learning rate scheduler (default: 300)')
@@ -135,9 +135,9 @@ if __name__ == '__main__':
     parser.add_argument('--eval_strategy', type=str, default='steps', help='evaluation strategy to adopt during training, steps or epoch (default: steps)')
     
     # -- save & log
-    parser.add_argument('--save_steps', type=int, default=500, help='model save steps')
+    parser.add_argument('--save_steps', type=int, default=400, help='model save steps')
     parser.add_argument('--logging_steps', type=int, default=100, help='training log steps')
-    parser.add_argument('--eval_steps', type=int, default=500, help='evaluation steps')
+    parser.add_argument('--eval_steps', type=int, default=400, help='evaluation steps')
 
     # -- Seed
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
