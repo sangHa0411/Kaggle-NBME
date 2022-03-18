@@ -1,61 +1,33 @@
-import numpy as np
+import re
+from nltk.tokenize import sent_tokenize
 
-class Preprocessor :
-    def __init__(self, tokenizer, max_length, label_pad_token_id=-100) :
-        self.tokenizer = tokenizer
-        self.max_length = max_length
-        self.label_pad_token_id = label_pad_token_id
 
-    def __call__(self, dataset) :
-        size = len(dataset['history'])
+def standardize(txt) :
+    sen_list = sent_tokenize(txt)
+    sens = []
+    for sen in sen_list :
+        if sen.isupper() :
+            sen = sen[0].upper() + sen[1:].lower()
+        sens.append(sen)
+    return ' '.join(sens)
 
-        history_list = dataset['history']
-        feature_list = dataset['feature']
+def clean_spaces(txt):
+    txt = re.sub('\n', ' ', txt)
+    txt = re.sub('\t', ' ', txt)
+    txt = re.sub('\r', ' ', txt)
+    txt = re.sub(';', ',', txt)
+    return txt
 
-        inputs = [history_list[i] + self.tokenizer.sep_token + feature_list[i] for i in range(size)]       
-        model_inputs = self.tokenizer(inputs,
-            add_special_tokens=True,
-            return_offsets_mapping=True,
-            return_token_type_ids=False,
-            max_length=self.max_length,
-            truncation=True,
-        )
+def preprocess(dataset) :
+    doc_list = dataset['history']
+    batch_size = len(doc_list)
 
-        flag_list = []
-        label_list = []
-        mapping = model_inputs.pop("offset_mapping")
-        for i in range(size) :
-            locations = dataset['locations'][i]
-            input_ids = model_inputs['input_ids'][i]
+    docs = []
+    for i in range(batch_size) :
+        doc = doc_list[i]
+        doc = clean_spaces(doc)
+        doc = standardize(doc)
+        docs.append(doc)
 
-            sep_token_index = input_ids.index(self.tokenizer.sep_token_id)
-
-            if len(locations) == 0 :
-                labels = np.ones(len(input_ids)).astype('int') * self.label_pad_token_id
-                # labels = np.zeros(len(input_ids)).astype('int')
-                # labels[sep_token_index:] = self.label_pad_token_id
-                flag_list.append(0)
-            else :
-                labels = np.zeros(len(input_ids)).astype('int')
-                labels[sep_token_index:] = self.label_pad_token_id
-                flag_list.append(1)
-                
-                for loc in locations :
-                    token_start_index = 1
-                    token_end_index = input_ids.index(self.tokenizer.sep_token_id) - 1
-
-                    org_start, org_end = loc
-                    if mapping[i][token_start_index][0] <= org_start and org_end <= mapping[i][token_end_index][1] :
-
-                        while(token_start_index < len(mapping[i]) and mapping[i][token_start_index][0] <= org_start) :
-                            token_start_index += 1
-
-                        while(token_end_index >= token_start_index and org_end < mapping[i][token_end_index][1]) :
-                            token_end_index -= 1
-
-                        labels[token_start_index-1:token_end_index+1] = 1
-            label_list.append(labels)
-            
-        model_inputs['flags'] = flag_list
-        model_inputs['labels'] = label_list
-        return model_inputs
+    dataset['history'] = doc_list
+    return dataset

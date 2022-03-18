@@ -8,7 +8,8 @@ import numpy as np
 
 from utils.loader import Loader
 from utils.metirc import compute_metrics
-from utils.preprocessor import Preprocessor
+from utils.encoder import Encoder
+from utils.preprocessor import preprocess
 from utils.collator import DataCollatorForTraining
 
 from dotenv import load_dotenv
@@ -28,25 +29,35 @@ def train(args):
     print('\nLoad Dataset')    
     loader = Loader(dir_path=args.dir_path, validation_ratio=args.eval_ratio, seed=args.seed)
     dset = loader.get()
+    print(dset)
     
     # -- Device
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # -- Config & Model
-    print('\nLoad Config and Model')
+    print('\nLoading Config and Model')
     config =  AutoConfig.from_pretrained(MODEL_NAME)
     config.num_labels = 2
     model = AutoModelForTokenClassification.from_pretrained(MODEL_NAME, config=config).to(device)
-        
+
+    # -- Preprocessing Dataset
+    print('\Preprocessing Dataset')
+    dset = dset.map(preprocess, batched=True, num_proc=args.num_proc)
+    print(dset)
+
     # -- Tokenizing Dataset
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
-    # -- Preprocessing Dataset
-    print('\nPreprocess Dataset')
-    preprocessor = Preprocessor(tokenizer=tokenizer, max_length=args.max_length)
-    dset = dset.map(preprocessor, batched=True, num_proc=args.num_proc, remove_columns=dset['train'].column_names)
+    # -- Encoding Dataset
+    print('\Encoding Dataset')
+    encoder = Encoder(tokenizer=tokenizer, max_length=args.max_length)
+    dset = dset.map(encoder, batched=True, num_proc=args.num_proc, remove_columns=dset['train'].column_names)
     train_dset, validation_dset = dset['train'], dset['validation']
-   
+    print('Training Dataset')
+    print(train_dset)
+    print('Validation Dataset')
+    print(validation_dset)
+    
     # -- Training Argument
     training_args = TrainingArguments(
         output_dir=args.output_dir,                                     # output directory
@@ -91,7 +102,7 @@ def main(args):
     wandb.login(key=WANDB_AUTH_KEY)
 
     train_batch_size = args.train_batch_size * args.gradient_accumulation_steps
-    wandb_name = f"epochs:{args.epochs}_learning_rate:{args.lr}_batch_size:{train_batch_size}_warmup_steps:{args.warmup_steps}_weight_decay:{args.weight_decay}"
+    wandb_name = f"EP:{args.epochs}_LR:{args.lr}_BS:{train_batch_size}_WS:{args.warmup_steps}_WD:{args.weight_decay}"
     wandb.init(entity="sangha0411", project="kaggle - NBME", name=wandb_name, group=args.PLM)
     wandb.config.update(args)
     train(args)
@@ -127,7 +138,7 @@ if __name__ == '__main__':
     parser.add_argument('--train_batch_size', type=int, default=4, help='train batch size (default: 4)')
     parser.add_argument('--weight_decay', type=float, default=1e-3, help='strength of weight decay (default: 1e-3)')
     parser.add_argument('--warmup_steps', type=int, default=300, help='number of warmup steps for learning rate scheduler (default: 300)')
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=2, help='gradient_accumulation_steps (default: 2)')
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=4, help='gradient_accumulation_steps (default: 4)')
 
     # -- validation arguments
     parser.add_argument('--eval_ratio', type=float, default=0.2, help='evaluation ratio (default: 0.2)')
@@ -143,7 +154,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
 
     # -- Wandb
-    parser.add_argument('--dotenv_path', default='./path.env', help='input your dotenv path')
+    parser.add_argument('--dotenv_path', default='path.env', help='input your dotenv path')
 
     args = parser.parse_args()
 
