@@ -1,7 +1,6 @@
 import re
 from nltk.tokenize import sent_tokenize
 
-
 def standardize(txt) :
     sen_list = sent_tokenize(txt)
     sens = []
@@ -15,7 +14,6 @@ def clean_spaces(txt):
     txt = re.sub('\n', ' ', txt)
     txt = re.sub('\t', ' ', txt)
     txt = re.sub('\r', ' ', txt)
-    txt = re.sub(';', ',', txt)
     return txt
 
 def preprocess(dataset) :
@@ -29,5 +27,5 @@ def preprocess(dataset) :
         doc = standardize(doc)
         docs.append(doc)
 
-    dataset['history'] = doc_list
+    dataset['history'] = docs
     return dataset

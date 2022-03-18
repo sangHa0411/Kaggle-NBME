@@ -21,23 +21,20 @@ class Encoder :
             truncation=True,
         )
 
-        label_list = []
+        label_dset = []
         mapping = model_inputs.pop("offset_mapping")
         for i in range(size) :
             locations = dataset['locations'][i]
             input_ids = model_inputs['input_ids'][i]
 
             sep_token_index = input_ids.index(self.tokenizer.sep_token_id)
+            labels = np.zeros(len(input_ids)).astype('int')
+            labels[sep_token_index:] = self.label_pad_token_id
 
-            if len(locations) == 0 :
-                labels = np.zeros(len(input_ids)).astype('int')
-                labels[sep_token_index:] = self.label_pad_token_id
-            else :
-                labels = np.zeros(len(input_ids)).astype('int')
-                labels[sep_token_index:] = self.label_pad_token_id                
+            if len(locations) > 0 :                
                 for loc in locations :
                     token_start_index = 1
-                    token_end_index = input_ids.index(self.tokenizer.sep_token_id) - 1
+                    token_end_index = sep_token_index - 1
 
                     org_start, org_end = loc
                     if mapping[i][token_start_index][0] <= org_start and org_end <= mapping[i][token_end_index][1] :
@@ -49,8 +46,8 @@ class Encoder :
                             token_end_index -= 1
 
                         labels[token_start_index-1:token_end_index+1] = 1
-
-            label_list.append(labels)
             
-        model_inputs['labels'] = label_list
+            label_dset.append(labels)
+            
+        model_inputs['labels'] = label_dset
         return model_inputs

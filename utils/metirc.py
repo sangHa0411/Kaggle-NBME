@@ -18,7 +18,10 @@ def compute_metrics(pred):
             label = label_ids[j]
             pred = prediction_ids[j]
 
-            if label == 1 or pred == 1 :
+            if label == -100 :
+                continue
+
+            if label == 1 or pred == 1:
                 label_list.append(label)
                 pred_list.append(pred)
 
