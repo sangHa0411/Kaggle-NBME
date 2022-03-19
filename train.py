@@ -25,10 +25,23 @@ def train(args):
     MODEL_NAME = args.PLM
     print('Model : %s' %MODEL_NAME)
 
+    eval_flag = False if args.eval_strategy == 'no' else True
+    if eval_flag == False :
+        eval_strategy = 'no'
+        eval_steps = None
+        eval_batch_size = None
+        load_best_model_at_end = False
+    else :
+        eval_ratio = args.eval_ratio
+        eval_strategy = args.eval_strategy
+        eval_steps = args.save_steps
+        eval_batch_size = args.eval_batch_size
+        load_best_model_at_end = True
+
     # -- Loading Dataset
     print('\nLoading Dataset')    
-    loader = Loader(dir_path=args.dir_path, validation_ratio=args.eval_ratio, seed=args.seed)
-    dset = loader.get()
+    loader = Loader(dir_path=args.dir_path, seed=args.seed)
+    dset = loader.get_total() if eval_flag == False else loader.get(eval_ratio)
     print(dset)
     
     # -- Device
@@ -41,23 +54,20 @@ def train(args):
     model = AutoModelForTokenClassification.from_pretrained(MODEL_NAME, config=config).to(device)
 
     # -- Preprocessing Dataset
-    # print('\Preprocessing Dataset')
-    # dset = dset.map(preprocess, batched=True, num_proc=args.num_proc)
-    # print(dset)
+    print('\Preprocessing Dataset')
+    dset = dset.map(preprocess, batched=True, num_proc=args.num_proc)
+    print(dset)
 
     # -- Tokenizing Dataset
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
     # -- Encoding Dataset
     print('\nEncoding Dataset')
+    column_names = dset.column_names if eval_flag == False else dset['train'].column_names
     encoder = Encoder(tokenizer=tokenizer, max_length=args.max_length)
-    dset = dset.map(encoder, batched=True, num_proc=args.num_proc, remove_columns=dset['train'].column_names)
-    train_dset, validation_dset = dset['train'], dset['validation']
-    print('Training Dataset')
-    print(train_dset)
-    print('Validation Dataset')
-    print(validation_dset)
-    
+    dset = dset.map(encoder, batched=True, num_proc=args.num_proc, remove_columns=column_names)
+    print(dset)
+
     # -- Training Argument
     training_args = TrainingArguments(
         output_dir=args.output_dir,                                     # output directory
@@ -67,15 +77,15 @@ def train(args):
         num_train_epochs=args.epochs,                                   # total number of training epochs
         learning_rate=args.lr,                                          # learning_rate
         per_device_train_batch_size=args.train_batch_size,              # batch size per device during training
-        per_device_eval_batch_size=args.eval_batch_size,                # batch size for evaluation
+        per_device_eval_batch_size=eval_batch_size,                     # batch size for evaluation
         warmup_steps=args.warmup_steps,                                 # number of warmup steps for learning rate scheduler
         weight_decay=args.weight_decay,                                 # strength of weight decay
         logging_dir=args.logging_dir,                                   # directory for storing logs
         logging_steps=args.logging_steps,                               # log saving step.
-        evaluation_strategy=args.eval_strategy,                         # evaluation strategy to adopt during training
-        eval_steps=args.eval_steps,                                     # evaluation step.
+        evaluation_strategy=eval_strategy,                              # evaluation strategy to adopt during training
+        eval_steps=eval_steps,                                          # evaluation step.
         gradient_accumulation_steps=args.gradient_accumulation_steps,   # gradient accumulation steps
-        load_best_model_at_end = True,
+        load_best_model_at_end = load_best_model_at_end,
         report_to='wandb'
     )
 
@@ -84,12 +94,12 @@ def train(args):
 
     # -- Trainer
     trainer = Trainer(
-        model=model,                         # the instantiated 🤗 Transformers model to be trained
-        args=training_args,                  # training arguments, defined above
-        train_dataset=train_dset,            # training dataset
-        eval_dataset=validation_dset,        # evaluation dataset
-        data_collator=collator,              # collator
-        compute_metrics=compute_metrics      # define metrics function
+        model=model,                                                    # the instantiated 🤗 Transformers model to be trained
+        args=training_args,                                             # training arguments, defined above
+        train_dataset=dset['train'] if eval_flag == True else dset,     # training dataset
+        eval_dataset=dset['validation'] if eval_flag == True else None, # evaluation dataset
+        data_collator=collator,                                         # collator
+        compute_metrics=compute_metrics                                 # define metrics function
     )
 
     # -- Training
@@ -148,7 +158,6 @@ if __name__ == '__main__':
     # -- save & log
     parser.add_argument('--save_steps', type=int, default=400, help='model save steps')
     parser.add_argument('--logging_steps', type=int, default=100, help='training log steps')
-    parser.add_argument('--eval_steps', type=int, default=400, help='evaluation steps')
 
     # -- Seed
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')

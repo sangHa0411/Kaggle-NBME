@@ -4,10 +4,9 @@ import pandas as pd
 from datasets import Dataset, DatasetDict
 
 class Loader :
-    def __init__(self, dir_path, validation_ratio, seed) :
+    def __init__(self, dir_path, seed) :
         self.df = self.load(dir_path)
         self.dataset = self.parsing(self.df)
-        self.validation_ratio = validation_ratio
         self.seed = seed
 
     def load(self, dir_path) :
@@ -52,11 +51,11 @@ class Loader :
             dataset.append(info)
         return dataset
 
-    def get(self,) :
+    def get(self, validation_ratio) :
         dset = self.convert_dataset(self.dataset)
         
         ids_list = list(range(len(dset)))
-        train_size = int(len(ids_list) * (1-self.validation_ratio))
+        train_size = int(len(ids_list) * (1-validation_ratio))
 
         train_ids = random.sample(ids_list, train_size)
         validation_ids = list(set(ids_list) - set(train_ids))
