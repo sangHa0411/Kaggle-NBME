@@ -8,7 +8,7 @@ import numpy as np
 
 from utils.loader import Loader
 from utils.encoder import Encoder
-from utils.preprocessor import preprocess
+from utils.preprocessor import Preprocessor
 from utils.metirc import compute_metrics
 from utils.collator import DataCollatorForTraining
 
@@ -54,8 +54,9 @@ def train(args):
     model = AutoModelForTokenClassification.from_pretrained(MODEL_NAME, config=config).to(device)
 
     # -- Preprocessing Dataset
-    print('\Preprocessing Dataset')
-    dset = dset.map(preprocess, batched=True, num_proc=args.num_proc)
+    print('\nPreprocessing Dataset')
+    preprocessor = Preprocessor()
+    dset = dset.map(preprocessor, batched=True, num_proc=args.num_proc)
     print(dset)
 
     # -- Tokenizing Dataset
@@ -144,10 +145,10 @@ if __name__ == '__main__':
 
     # -- training arguments
     parser.add_argument('--lr', type=float, default=3e-5, help='learning rate (default: 3e-5)')
-    parser.add_argument('--epochs', type=int, default=3, help='number of epochs to train (default: 5)')
-    parser.add_argument('--train_batch_size', type=int, default=4, help='train batch size (default: 4)')
-    parser.add_argument('--weight_decay', type=float, default=1e-2, help='strength of weight decay (default: 1e-3)')
-    parser.add_argument('--warmup_steps', type=int, default=100, help='number of warmup steps for learning rate scheduler (default: 100)')
+    parser.add_argument('--epochs', type=int, default=3, help='number of epochs to train (default: 3)')
+    parser.add_argument('--train_batch_size', type=int, default=8, help='train batch size (default: 8)')
+    parser.add_argument('--weight_decay', type=float, default=1e-3, help='strength of weight decay (default: 1e-3)')
+    parser.add_argument('--warmup_steps', type=int, default=200, help='number of warmup steps for learning rate scheduler (default: 200)')
     parser.add_argument('--gradient_accumulation_steps', type=int, default=2, help='gradient_accumulation_steps (default: 2)')
 
     # -- validation arguments
