@@ -22,15 +22,8 @@ class DataCollatorForTraining:
             padding_side = self.tokenizer.padding_side
             for feature in features:
                 remainder = [self.label_pad_token_id] * (max_label_length - len(feature["labels"]))
-                if isinstance(feature["labels"], list):
-                    feature["labels"] = (
-                        feature["labels"] + remainder if padding_side == "right" else remainder + feature["labels"]
-                    )
-                elif padding_side == "right":
-                    feature["labels"] = np.concatenate([feature["labels"], remainder]).astype(np.int64)
-                else:
-                    feature["labels"] = np.concatenate([remainder, feature["labels"]]).astype(np.int64)
-
+                feature["labels"] = (feature["labels"] + remainder if padding_side == "right" else remainder + feature["labels"])
+                
         batch = self.tokenizer.pad(
             features,
             padding=self.padding,

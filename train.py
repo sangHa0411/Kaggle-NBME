@@ -29,13 +29,11 @@ def train(args):
     if eval_flag == False :
         eval_strategy = 'no'
         eval_steps = None
-        eval_batch_size = None
         load_best_model_at_end = False
     else :
         eval_ratio = args.eval_ratio
         eval_strategy = args.eval_strategy
         eval_steps = args.save_steps
-        eval_batch_size = args.eval_batch_size
         load_best_model_at_end = True
 
     # -- Loading Dataset
@@ -54,10 +52,10 @@ def train(args):
     model = AutoModelForTokenClassification.from_pretrained(MODEL_NAME, config=config).to(device)
 
     # -- Preprocessing Dataset
-    print('\nPreprocessing Dataset')
-    preprocessor = Preprocessor()
-    dset = dset.map(preprocessor, batched=True, num_proc=args.num_proc)
-    print(dset)
+    # print('\nPreprocessing Dataset')
+    # preprocessor = Preprocessor()
+    # dset = dset.map(preprocessor, batched=True, num_proc=args.num_proc)
+    # print(dset)
 
     # -- Tokenizing Dataset
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
@@ -78,7 +76,7 @@ def train(args):
         num_train_epochs=args.epochs,                                   # total number of training epochs
         learning_rate=args.lr,                                          # learning_rate
         per_device_train_batch_size=args.train_batch_size,              # batch size per device during training
-        per_device_eval_batch_size=eval_batch_size,                     # batch size for evaluation
+        per_device_eval_batch_size=args.eval_batch_size,                # batch size for evaluation
         warmup_steps=args.warmup_steps,                                 # number of warmup steps for learning rate scheduler
         weight_decay=args.weight_decay,                                 # strength of weight decay
         logging_dir=args.logging_dir,                                   # directory for storing logs
@@ -146,10 +144,10 @@ if __name__ == '__main__':
     # -- training arguments
     parser.add_argument('--lr', type=float, default=3e-5, help='learning rate (default: 3e-5)')
     parser.add_argument('--epochs', type=int, default=3, help='number of epochs to train (default: 3)')
-    parser.add_argument('--train_batch_size', type=int, default=8, help='train batch size (default: 8)')
+    parser.add_argument('--train_batch_size', type=int, default=4, help='train batch size (default: 4)')
     parser.add_argument('--weight_decay', type=float, default=1e-3, help='strength of weight decay (default: 1e-3)')
     parser.add_argument('--warmup_steps', type=int, default=200, help='number of warmup steps for learning rate scheduler (default: 200)')
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=2, help='gradient_accumulation_steps (default: 2)')
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=4, help='gradient_accumulation_steps (default: 4)')
 
     # -- validation arguments
     parser.add_argument('--eval_ratio', type=float, default=0.2, help='evaluation ratio (default: 0.2)')
@@ -157,8 +155,8 @@ if __name__ == '__main__':
     parser.add_argument('--eval_strategy', type=str, default='steps', help='evaluation strategy to adopt during training, steps or epoch (default: steps)')
     
     # -- save & log
-    parser.add_argument('--save_steps', type=int, default=400, help='model save steps')
-    parser.add_argument('--logging_steps', type=int, default=100, help='training log steps')
+    parser.add_argument('--save_steps', type=int, default=500, help='model save steps (default: 500)')
+    parser.add_argument('--logging_steps', type=int, default=100, help='training log steps (default: 100)')
 
     # -- Seed
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
