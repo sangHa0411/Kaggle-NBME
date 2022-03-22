@@ -9,12 +9,13 @@ import numpy as np
 from utils.loader import Loader
 from utils.encoder import Encoder
 from utils.preprocessor import Preprocessor
+from utils.finder import merge
 from utils.metirc import compute_metrics
 from utils.collator import DataCollatorForTraining
 
 from dotenv import load_dotenv
-from transformers import (AutoTokenizer, 
-    AutoConfig, 
+from transformers.models.deberta_v2.tokenization_deberta_v2_fast import DebertaV2TokenizerFast
+from transformers import (AutoConfig, 
     AutoModelForTokenClassification,
     Trainer, 
     TrainingArguments, 
@@ -38,10 +39,14 @@ def train(args):
 
     # -- Loading Dataset
     print('\nLoading Dataset')    
-    loader = Loader(dir_path=args.dir_path, seed=args.seed)
+    loader = Loader(dir_path=args.data_dir, seed=args.seed)
     dset = loader.get_total() if eval_flag == False else loader.get(eval_ratio)
     print(dset)
     
+    # -- Merging Library
+    print('\nFinding debert-v3-fast tokenizer')
+    merge(args.transformers_dir, args.tokenizer_dir)
+
     # -- Device
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -58,7 +63,7 @@ def train(args):
     # print(dset)
 
     # -- Tokenizing Dataset
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    tokenizer = DebertaV2TokenizerFast.from_pretrained(MODEL_NAME)
 
     # -- Encoding Dataset
     print('\nEncoding Dataset')
@@ -132,10 +137,12 @@ if __name__ == '__main__':
     # -- directory
     parser.add_argument('--output_dir', default='exp', help='trained model output directory')
     parser.add_argument('--logging_dir', default='logs', help='logging directory')
-    parser.add_argument('--dir_path', default='data', help='train data directory path')
+    parser.add_argument('--data_dir', default='data', help='train data directory path')
     
     # -- plm
-    parser.add_argument('--PLM', type=str, default='roberta-large', help='model type (default: roberta-large)')
+    parser.add_argument('--transformers_dir', type=str, default='/usr/local/lib/python3.7/dist-packages/transformers', help='transformers package path')
+    parser.add_argument('--tokenizer_dir', type=str, default='./tokenizer', help='deberta-v3-fast path')
+    parser.add_argument('--PLM', type=str, default='microsoft/deberta-v3-large', help='model type (microsoft/deberta-v3-large)')
 
     # -- Data Length
     parser.add_argument('--max_length', type=int, default=512, help='max length of tensor (default: 512)')
