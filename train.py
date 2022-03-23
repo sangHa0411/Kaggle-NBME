@@ -12,9 +12,9 @@ from utils.preprocessor import Preprocessor
 from utils.finder import merge
 from utils.metirc import compute_metrics
 from utils.collator import DataCollatorForTraining
+# from transformers.models.deberta_v2.tokenization_deberta_v2_fast import DebertaV2TokenizerFast
 
 from dotenv import load_dotenv
-from transformers.models.deberta_v2.tokenization_deberta_v2_fast import DebertaV2TokenizerFast
 from transformers import (AutoConfig, 
     AutoTokenizer,
     AutoModelForTokenClassification,
@@ -54,12 +54,12 @@ def train(args):
     # print(dset)
 
     # -- Tokenizing Dataset
-    tokenizer = DebertaV2TokenizerFast.from_pretrained(MODEL_NAME) if 'debert-v3' in MODEL_NAME else AutoTokenizer.from_pretrained(MODEL_NAME)
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME) # DebertaV2TokenizerFast.from_pretrained(MODEL_NAME) if 'debert-v3' in MODEL_NAME else 
 
     # -- Encoding Dataset
     print('\nEncoding Dataset')
     column_names = dset.column_names
-    encoder = Encoder(tokenizer=tokenizer, max_length=args.max_length)
+    encoder = Encoder(plm=MODEL_NAME, tokenizer=tokenizer, max_length=args.max_length)
     dset = dset.map(encoder, batched=True, num_proc=args.num_proc, remove_columns=column_names)
     print(dset)
 

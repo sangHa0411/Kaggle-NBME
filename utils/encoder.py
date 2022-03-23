@@ -27,7 +27,7 @@ class Encoder :
             mapping = copy.deepcopy(mappings[i])
             input_ids = model_inputs['input_ids'][i]
             locations = dataset['locations'][i]
-            annotation_length = dataset['annotation_length']
+            annotation_length = dataset['annotation_length'][i]
             sequence_ids = model_inputs.sequence_ids(i)
 
             start_token, end_token = self.get_positions(sequence_ids)

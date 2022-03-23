@@ -58,9 +58,8 @@ class Loader :
             annotations.append(row['annotation_length'])
             locations.append(row['location'])
 
-        dset = {'locations' : locations, 'history' : pn_history, 'feature' : feature_text, 'annotation_lengths' : annotations}
-        dset = Dataset.from_dict(dset)
-        return dataset
+        dset = Dataset.from_dict({'locations' : locations, 'history' : pn_history, 'feature' : feature_text, 'annotation_length' : annotations})
+        return dset
 
     def get(self, ) :
         dset = self.convert(self.df).shuffle(self.seed)
