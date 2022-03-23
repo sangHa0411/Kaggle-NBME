@@ -16,6 +16,7 @@ from utils.collator import DataCollatorForTraining
 from dotenv import load_dotenv
 from transformers.models.deberta_v2.tokenization_deberta_v2_fast import DebertaV2TokenizerFast
 from transformers import (AutoConfig, 
+    AutoTokenizer,
     AutoModelForTokenClassification,
     Trainer, 
     TrainingArguments, 
@@ -26,26 +27,16 @@ def train(args):
     MODEL_NAME = args.PLM
     print('Model : %s' %MODEL_NAME)
 
-    eval_flag = False if args.eval_strategy == 'no' else True
-    if eval_flag == False :
-        eval_strategy = 'no'
-        eval_steps = None
-        load_best_model_at_end = False
-    else :
-        eval_ratio = args.eval_ratio
-        eval_strategy = args.eval_strategy
-        eval_steps = args.save_steps
-        load_best_model_at_end = True
-
     # -- Loading Dataset
     print('\nLoading Dataset')    
     loader = Loader(dir_path=args.data_dir, seed=args.seed)
-    dset = loader.get_total() if eval_flag == False else loader.get(eval_ratio)
+    dset = loader.get()
     print(dset)
     
     # -- Merging Library
-    print('\nFinding debert-v3-fast tokenizer')
-    merge(args.transformers_dir, args.tokenizer_dir)
+    if 'debert-v3' in MODEL_NAME :
+        print('\nFinding debert-v3-fast tokenizer')
+        merge(args.transformers_dir, args.tokenizer_dir)
 
     # -- Device
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -63,11 +54,11 @@ def train(args):
     # print(dset)
 
     # -- Tokenizing Dataset
-    tokenizer = DebertaV2TokenizerFast.from_pretrained(MODEL_NAME)
+    tokenizer = DebertaV2TokenizerFast.from_pretrained(MODEL_NAME) if 'debert-v3' in MODEL_NAME else AutoTokenizer.from_pretrained(MODEL_NAME)
 
     # -- Encoding Dataset
     print('\nEncoding Dataset')
-    column_names = dset.column_names if eval_flag == False else dset['train'].column_names
+    column_names = dset.column_names
     encoder = Encoder(tokenizer=tokenizer, max_length=args.max_length)
     dset = dset.map(encoder, batched=True, num_proc=args.num_proc, remove_columns=column_names)
     print(dset)
@@ -81,15 +72,11 @@ def train(args):
         num_train_epochs=args.epochs,                                   # total number of training epochs
         learning_rate=args.lr,                                          # learning_rate
         per_device_train_batch_size=args.train_batch_size,              # batch size per device during training
-        per_device_eval_batch_size=args.eval_batch_size,                # batch size for evaluation
         warmup_steps=args.warmup_steps,                                 # number of warmup steps for learning rate scheduler
         weight_decay=args.weight_decay,                                 # strength of weight decay
         logging_dir=args.logging_dir,                                   # directory for storing logs
         logging_steps=args.logging_steps,                               # log saving step.
-        evaluation_strategy=eval_strategy,                              # evaluation strategy to adopt during training
-        eval_steps=eval_steps,                                          # evaluation step.
         gradient_accumulation_steps=args.gradient_accumulation_steps,   # gradient accumulation steps
-        load_best_model_at_end = load_best_model_at_end,
         report_to='wandb'
     )
 
@@ -100,8 +87,7 @@ def train(args):
     trainer = Trainer(
         model=model,                                                    # the instantiated 🤗 Transformers model to be trained
         args=training_args,                                             # training arguments, defined above
-        train_dataset=dset['train'] if eval_flag == True else dset,     # training dataset
-        eval_dataset=dset['validation'] if eval_flag == True else None, # evaluation dataset
+        train_dataset=dset,                                             # training dataset
         data_collator=collator,                                         # collator
         compute_metrics=compute_metrics                                 # define metrics function
     )
@@ -150,17 +136,12 @@ if __name__ == '__main__':
 
     # -- training arguments
     parser.add_argument('--lr', type=float, default=3e-5, help='learning rate (default: 3e-5)')
-    parser.add_argument('--epochs', type=int, default=3, help='number of epochs to train (default: 3)')
+    parser.add_argument('--epochs', type=int, default=2, help='number of epochs to train (default: 3)')
     parser.add_argument('--train_batch_size', type=int, default=4, help='train batch size (default: 4)')
     parser.add_argument('--weight_decay', type=float, default=1e-3, help='strength of weight decay (default: 1e-3)')
     parser.add_argument('--warmup_steps', type=int, default=200, help='number of warmup steps for learning rate scheduler (default: 200)')
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=4, help='gradient_accumulation_steps (default: 4)')
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=2, help='gradient_accumulation_steps (default: 2)')
 
-    # -- validation arguments
-    parser.add_argument('--eval_ratio', type=float, default=0.2, help='evaluation ratio (default: 0.2)')
-    parser.add_argument('--eval_batch_size', type=int, default=8, help='eval batch size (default: 8)')
-    parser.add_argument('--eval_strategy', type=str, default='steps', help='evaluation strategy to adopt during training, steps or epoch (default: steps)')
-    
     # -- save & log
     parser.add_argument('--save_steps', type=int, default=500, help='model save steps (default: 500)')
     parser.add_argument('--logging_steps', type=int, default=100, help='training log steps (default: 100)')
