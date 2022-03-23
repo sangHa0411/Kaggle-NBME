@@ -128,19 +128,19 @@ if __name__ == '__main__':
     # -- plm
     parser.add_argument('--transformers_dir', type=str, default='/usr/local/lib/python3.7/dist-packages/transformers', help='transformers package path')
     parser.add_argument('--tokenizer_dir', type=str, default='./tokenizer', help='deberta-v3-fast path')
-    parser.add_argument('--PLM', type=str, default='microsoft/deberta-v3-large', help='model type (microsoft/deberta-v3-large)')
+    parser.add_argument('--PLM', type=str, default='microsoft/deberta-large', help='model type (microsoft/deberta-large)')
 
     # -- Data Length
     parser.add_argument('--max_length', type=int, default=512, help='max length of tensor (default: 512)')
     parser.add_argument('--num_proc', type=int, default=4, help='the number of processor (default: 4)')
 
     # -- training arguments
-    parser.add_argument('--lr', type=float, default=3e-5, help='learning rate (default: 3e-5)')
-    parser.add_argument('--epochs', type=int, default=2, help='number of epochs to train (default: 3)')
-    parser.add_argument('--train_batch_size', type=int, default=4, help='train batch size (default: 4)')
+    parser.add_argument('--lr', type=float, default=5e-6, help='learning rate (default: 5e-6)')
+    parser.add_argument('--epochs', type=int, default=5, help='number of epochs to train (default: 5)')
+    parser.add_argument('--train_batch_size', type=int, default=2, help='train batch size (default: 2)')
     parser.add_argument('--weight_decay', type=float, default=1e-3, help='strength of weight decay (default: 1e-3)')
-    parser.add_argument('--warmup_steps', type=int, default=200, help='number of warmup steps for learning rate scheduler (default: 200)')
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=2, help='gradient_accumulation_steps (default: 2)')
+    parser.add_argument('--warmup_steps', type=int, default=50, help='number of warmup steps for learning rate scheduler (default: 50)')
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=8, help='gradient_accumulation_steps (default: 8)')
 
     # -- save & log
     parser.add_argument('--save_steps', type=int, default=500, help='model save steps (default: 500)')

@@ -48,7 +48,6 @@ class Loader :
         return df
 
     def convert(self, df) :
-        dataset = []
         pn_history, feature_text, annotations, locations = [], [], [], []
 
         for i in range(len(df)) :
@@ -57,7 +56,6 @@ class Loader :
             feature_text.append(row['feature_text'])
             annotations.append(row['annotation_length'])
             locations.append(row['location'])
-
         dset = Dataset.from_dict({'locations' : locations, 'history' : pn_history, 'feature' : feature_text, 'annotation_length' : annotations})
         return dset
 

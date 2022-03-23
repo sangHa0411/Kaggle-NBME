@@ -25,17 +25,11 @@ class Encoder :
 
         for i in range(batch_size) :
             mapping = copy.deepcopy(mappings[i])
-            input_ids = model_inputs['input_ids'][i]
             locations = dataset['locations'][i]
             annotation_length = dataset['annotation_length'][i]
             sequence_ids = model_inputs.sequence_ids(i)
 
             start_token, end_token = self.get_positions(sequence_ids)
-
-            if 'deberta' in self.plm :
-                for i in range(start_token, end_token+1) : 
-                    if self.tokenizer.convert_ids_to_tokens(input_ids[i])[0] == 'Ġ' :
-                        mapping[i] = (mapping[i][0]+1, mapping[i][1])
 
             labels = np.zeros(len(sequence_ids)).astype('int')
             labels[end_token+1:] = self.label_pad_token_id
@@ -50,7 +44,7 @@ class Encoder :
                         token_end_index = end_token
 
                         if mapping[token_start_index][0] <= org_start and org_end <= mapping[token_end_index][1] :
-                            while(token_start_index < len(sequence_ids) and mapping[token_start_index][0] < org_start) :
+                            while(token_start_index < len(sequence_ids) and mapping[token_start_index][0] + 1 < org_start) :
                                 token_start_index += 1
 
                             while(token_end_index >= token_start_index and mapping[token_end_index][1] > org_end) :
