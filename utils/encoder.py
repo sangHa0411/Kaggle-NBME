@@ -1,4 +1,3 @@
-import copy
 import numpy as np
 
 class Encoder :
@@ -13,7 +12,7 @@ class Encoder :
             dataset['history'],
             add_special_tokens=True,
             return_offsets_mapping=True,
-            return_token_type_ids=False if 'roberta' in self.plm else True,
+            return_token_type_ids=False,
             max_length=self.max_length,
             truncation='only_second',
         )
@@ -24,7 +23,7 @@ class Encoder :
         mappings = model_inputs.pop("offset_mapping")
 
         for i in range(batch_size) :
-            mapping = copy.deepcopy(mappings[i])
+            mapping = mappings[i]
             locations = dataset['locations'][i]
             annotation_length = dataset['annotation_length'][i]
             sequence_ids = model_inputs.sequence_ids(i)

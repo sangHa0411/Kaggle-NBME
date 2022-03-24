@@ -8,11 +8,8 @@ import numpy as np
 
 from utils.loader import Loader
 from utils.encoder import Encoder
-from utils.preprocessor import Preprocessor
-from utils.finder import merge
 from utils.metirc import compute_metrics
 from utils.collator import DataCollatorForTraining
-# from transformers.models.deberta_v2.tokenization_deberta_v2_fast import DebertaV2TokenizerFast
 
 from dotenv import load_dotenv
 from transformers import (AutoConfig, 
@@ -32,11 +29,6 @@ def train(args):
     loader = Loader(dir_path=args.data_dir, seed=args.seed)
     dset = loader.get()
     print(dset)
-    
-    # -- Merging Library
-    if 'debert-v3' in MODEL_NAME :
-        print('\nFinding debert-v3-fast tokenizer')
-        merge(args.transformers_dir, args.tokenizer_dir)
 
     # -- Device
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -47,14 +39,8 @@ def train(args):
     config.num_labels = 2
     model = AutoModelForTokenClassification.from_pretrained(MODEL_NAME, config=config).to(device)
 
-    # -- Preprocessing Dataset
-    # print('\nPreprocessing Dataset')
-    # preprocessor = Preprocessor()
-    # dset = dset.map(preprocessor, batched=True, num_proc=args.num_proc)
-    # print(dset)
-
     # -- Tokenizing Dataset
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME) # DebertaV2TokenizerFast.from_pretrained(MODEL_NAME) if 'debert-v3' in MODEL_NAME else 
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
     # -- Encoding Dataset
     print('\nEncoding Dataset')
@@ -67,7 +53,7 @@ def train(args):
     training_args = TrainingArguments(
         output_dir=args.output_dir,                                     # output directory
         overwrite_output_dir=True,                                      # overwrite output directory
-        save_total_limit=3,                                             # number of total save model.
+        save_total_limit=5,                                             # number of total save model.
         save_steps=args.save_steps,                                     # model saving step.
         num_train_epochs=args.epochs,                                   # total number of training epochs
         learning_rate=args.lr,                                          # learning_rate
@@ -76,6 +62,8 @@ def train(args):
         weight_decay=args.weight_decay,                                 # strength of weight decay
         logging_dir=args.logging_dir,                                   # directory for storing logs
         logging_steps=args.logging_steps,                               # log saving step.
+        adam_epsilon=1e-6,                                              # adam epsiloion
+        fp16=True,                                                      # fp16 flag
         gradient_accumulation_steps=args.gradient_accumulation_steps,   # gradient accumulation steps
         report_to='wandb'
     )
@@ -126,21 +114,19 @@ if __name__ == '__main__':
     parser.add_argument('--data_dir', default='data', help='train data directory path')
     
     # -- plm
-    parser.add_argument('--transformers_dir', type=str, default='/usr/local/lib/python3.7/dist-packages/transformers', help='transformers package path')
-    parser.add_argument('--tokenizer_dir', type=str, default='./tokenizer', help='deberta-v3-fast path')
     parser.add_argument('--PLM', type=str, default='microsoft/deberta-large', help='model type (microsoft/deberta-large)')
 
     # -- Data Length
-    parser.add_argument('--max_length', type=int, default=512, help='max length of tensor (default: 512)')
+    parser.add_argument('--max_length', type=int, default=360, help='max length of tensor (default: 360)')
     parser.add_argument('--num_proc', type=int, default=4, help='the number of processor (default: 4)')
 
     # -- training arguments
     parser.add_argument('--lr', type=float, default=5e-6, help='learning rate (default: 5e-6)')
-    parser.add_argument('--epochs', type=int, default=5, help='number of epochs to train (default: 5)')
+    parser.add_argument('--epochs', type=int, default=2, help='number of epochs to train (default: 2)')
     parser.add_argument('--train_batch_size', type=int, default=2, help='train batch size (default: 2)')
-    parser.add_argument('--weight_decay', type=float, default=1e-3, help='strength of weight decay (default: 1e-3)')
-    parser.add_argument('--warmup_steps', type=int, default=50, help='number of warmup steps for learning rate scheduler (default: 50)')
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=8, help='gradient_accumulation_steps (default: 8)')
+    parser.add_argument('--weight_decay', type=float, default=1e-2, help='strength of weight decay (default: 1e-2)')
+    parser.add_argument('--warmup_steps', type=int, default=200, help='number of warmup steps for learning rate scheduler (default: 200)')
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=4, help='gradient_accumulation_steps (default: 4)')
 
     # -- save & log
     parser.add_argument('--save_steps', type=int, default=500, help='model save steps (default: 500)')
