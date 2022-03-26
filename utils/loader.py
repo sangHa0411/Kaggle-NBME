@@ -1,19 +1,16 @@
 import os
 import re
 import ast 
+import random
+import numpy as np
 import pandas as pd
-from datasets import Dataset
+from datasets import Dataset, DatasetDict
+from tqdm import tqdm
 
 class Loader :
     def __init__(self, dir_path, seed) :
         self.df = self.load(dir_path)
         self.seed = seed
-
-    def process_feature_text(self, text):
-        text = re.sub('I-year', '1-year', text)
-        text = re.sub('-OR-', " or ", text)
-        text = re.sub('-', ' ', text)
-        return text
 
     def clean_spaces(self, txt):
         txt = re.sub('\n', ' ', txt)
@@ -41,8 +38,6 @@ class Loader :
 
     def preprocess(self, df) :
         df['clean_text'] = df['pn_history'].apply(lambda x: x.strip())
-        df['feature_text'] = df['feature_text'].apply(self.process_feature_text)
-
         df['feature_text'] = df['feature_text'].apply(self.clean_spaces)
         df['clean_text'] = df['clean_text'].apply(self.clean_spaces)
         return df
@@ -59,6 +54,36 @@ class Loader :
         dset = Dataset.from_dict({'locations' : locations, 'history' : pn_history, 'feature' : feature_text, 'annotation_length' : annotations})
         return dset
 
-    def get(self, ) :
+    def get(self,) :
         dset = self.convert(self.df).shuffle(self.seed)
+        return dset
+
+    def split(self, eval_ratio=0.2) :
+        df = self.df
+        docs = list(df['clean_text'].unique())
+
+        eval_ids = []
+        for doc in tqdm(docs) :
+            sub_df = df[df['clean_text'] == doc]
+            id_list = list(sub_df['id'])
+
+            size = len(sub_df)
+            eval_size = int(size * eval_ratio)
+            eval_ids.extend(random.sample(id_list, eval_size))
+
+        flags = []
+        for i in tqdm(range(len(df))) :
+            if df.iloc[i]['id'] in eval_ids :
+                flags.append(True)
+            else :
+                flags.append(False)
+
+        eval_df = df[flags]
+        eval_dset = self.convert(eval_df.reset_index(drop=True)).shuffle(self.seed)
+
+        flags = list(np.array(flags) == False)
+        train_df = df[flags]
+        train_dset = self.convert(train_df.reset_index(drop=True)).shuffle(self.seed)
+
+        dset = DatasetDict({'train' : train_dset, 'validation' : eval_dset})
         return dset

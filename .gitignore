@@ -1,3 +1,4 @@
 data/*.csv
 tokenizer
 path.env
+.DS_store

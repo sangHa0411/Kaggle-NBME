@@ -27,7 +27,7 @@ def train(args):
     # -- Loading Dataset
     print('\nLoading Dataset')    
     loader = Loader(dir_path=args.data_dir, seed=args.seed)
-    dset = loader.get()
+    dset = loader.get() if args.full_training else loader.split()
     print(dset)
 
     # -- Device
@@ -44,12 +44,22 @@ def train(args):
 
     # -- Encoding Dataset
     print('\nEncoding Dataset')
-    column_names = dset.column_names
+    column_names = dset.column_names if args.full_training else dset['train'].column_names
     encoder = Encoder(plm=MODEL_NAME, tokenizer=tokenizer, max_length=args.max_length)
     dset = dset.map(encoder, batched=True, num_proc=args.num_proc, remove_columns=column_names)
     print(dset)
 
-    # -- Training Argument
+    if args.full_training == True :
+        train_dset = dset
+        eval_dset = None
+        eval_strategy = 'no'
+    else :
+        train_dset = dset['train']
+        eval_dset = dset['validation']
+        eval_batch_size = args.train_batch_size * args.gradient_accumulation_steps
+        eval_strategy = 'steps'
+
+    # -- Training Argument for training & validation
     training_args = TrainingArguments(
         output_dir=args.output_dir,                                     # output directory
         overwrite_output_dir=True,                                      # overwrite output directory
@@ -57,13 +67,14 @@ def train(args):
         save_steps=args.save_steps,                                     # model saving step.
         num_train_epochs=args.epochs,                                   # total number of training epochs
         learning_rate=args.lr,                                          # learning_rate
+        eval_strategy=eval_strategy,                                    # eval strategy
+        eval_steps=args.save_steps,                                     # eval steps
+        per_device_eval_batch_size=eval_batch_size,                     # eval batch_size
         per_device_train_batch_size=args.train_batch_size,              # batch size per device during training
         warmup_steps=args.warmup_steps,                                 # number of warmup steps for learning rate scheduler
         weight_decay=args.weight_decay,                                 # strength of weight decay
         logging_dir=args.logging_dir,                                   # directory for storing logs
         logging_steps=args.logging_steps,                               # log saving step.
-        adam_epsilon=1e-6,                                              # adam epsiloion
-        fp16=True,                                                      # fp16 flag
         gradient_accumulation_steps=args.gradient_accumulation_steps,   # gradient accumulation steps
         report_to='wandb'
     )
@@ -75,7 +86,8 @@ def train(args):
     trainer = Trainer(
         model=model,                                                    # the instantiated 🤗 Transformers model to be trained
         args=training_args,                                             # training arguments, defined above
-        train_dataset=dset,                                             # training dataset
+        train_dataset=train_dset,                                       # training dataset
+        eval_dataset=eval_dset,                                         # eval dataset
         data_collator=collator,                                         # collator
         compute_metrics=compute_metrics                                 # define metrics function
     )
@@ -121,19 +133,20 @@ if __name__ == '__main__':
     parser.add_argument('--num_proc', type=int, default=4, help='the number of processor (default: 4)')
 
     # -- training arguments
-    parser.add_argument('--lr', type=float, default=5e-6, help='learning rate (default: 5e-6)')
+    parser.add_argument('--lr', type=float, default=3e-5, help='learning rate (default: 3e-5)')
     parser.add_argument('--epochs', type=int, default=2, help='number of epochs to train (default: 2)')
     parser.add_argument('--train_batch_size', type=int, default=2, help='train batch size (default: 2)')
-    parser.add_argument('--weight_decay', type=float, default=1e-2, help='strength of weight decay (default: 1e-2)')
+    parser.add_argument('--weight_decay', type=float, default=1e-3, help='strength of weight decay (default: 1e-3)')
     parser.add_argument('--warmup_steps', type=int, default=200, help='number of warmup steps for learning rate scheduler (default: 200)')
     parser.add_argument('--gradient_accumulation_steps', type=int, default=4, help='gradient_accumulation_steps (default: 4)')
 
     # -- save & log
+    parser.add_argument('--full_training', type=bool, default=False, help='full training flag (default: False)')
     parser.add_argument('--save_steps', type=int, default=500, help='model save steps (default: 500)')
     parser.add_argument('--logging_steps', type=int, default=100, help='training log steps (default: 100)')
 
     # -- Seed
-    parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
+    parser.add_argument('--seed', type=int, default=2, help='random seed (default: 2)')
 
     # -- Wandb
     parser.add_argument('--dotenv_path', default='path.env', help='input your dotenv path')
