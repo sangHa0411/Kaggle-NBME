@@ -1,4 +1,3 @@
-from unicodedata import bidirectional
 import torch
 import torch.nn as nn
 from transformers.modeling_outputs import TokenClassifierOutput
@@ -13,7 +12,7 @@ class DebertaForTokenClassification(DebertaPreTrainedModel):
 
         self.deberta = DebertaModel(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.classifier = nn.Linear(config.hidden_size, config.num_labels)
+        self.classifier = nn.Linear(config.hidden_size*2, config.num_labels)
 
         self.lstm = nn.LSTM(input_size=config.hidden_size,
             batch_first=True,
@@ -50,7 +49,7 @@ class DebertaForTokenClassification(DebertaPreTrainedModel):
         )
 
         sequence_output = outputs[0]
-        sequence_output = self.lstm(sequence_output)
+        sequence_output, (h,c) = self.lstm(sequence_output)
         
         sequence_output = self.dropout(sequence_output)
         logits = self.classifier(sequence_output)

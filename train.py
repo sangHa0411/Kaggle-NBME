@@ -4,7 +4,9 @@ import wandb
 import torch
 import random
 import argparse
+import transformers
 import numpy as np
+
 
 from utils.loader import Loader
 from utils.encoder import Encoder
@@ -52,12 +54,12 @@ def train(args):
     if args.full_training == True :
         train_dset = dset
         eval_dset = None
-        eval_strategy = 'no'
+        evaluation_strategy = 'no'
     else :
         train_dset = dset['train']
         eval_dset = dset['validation']
         eval_batch_size = args.train_batch_size * args.gradient_accumulation_steps
-        eval_strategy = 'steps'
+        evaluation_strategy = 'steps'
 
     # -- Training Argument for training & validation
     training_args = TrainingArguments(
@@ -67,7 +69,7 @@ def train(args):
         save_steps=args.save_steps,                                     # model saving step.
         num_train_epochs=args.epochs,                                   # total number of training epochs
         learning_rate=args.lr,                                          # learning_rate
-        eval_strategy=eval_strategy,                                    # eval strategy
+        evaluation_strategy=evaluation_strategy,                        # evaluation_strategy strategy
         eval_steps=args.save_steps,                                     # eval steps
         per_device_eval_batch_size=eval_batch_size,                     # eval batch_size
         per_device_train_batch_size=args.train_batch_size,              # batch size per device during training
@@ -75,12 +77,22 @@ def train(args):
         weight_decay=args.weight_decay,                                 # strength of weight decay
         logging_dir=args.logging_dir,                                   # directory for storing logs
         logging_steps=args.logging_steps,                               # log saving step.
+        fp16=True,                                                      # fp16 flag
         gradient_accumulation_steps=args.gradient_accumulation_steps,   # gradient accumulation steps
         report_to='wandb'
     )
 
     # -- Collator
     collator = DataCollatorForTraining(tokenizer=tokenizer, max_length=args.max_length)
+
+    # -- Optimizer & Scheduler
+    epoch_steps = len(train_dset) // (args.train_batch_size * args.gradient_accumulation_steps)
+    training_steps = epoch_steps * args.epochs
+    optimizer = transformers.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    scheduler = transformers.get_cosine_schedule_with_warmup(optimizer=optimizer,
+        num_warmup_steps=args.warmup_steps,
+        num_training_steps=training_steps,
+    )
 
     # -- Trainer
     trainer = Trainer(
@@ -89,6 +101,7 @@ def train(args):
         train_dataset=train_dset,                                       # training dataset
         eval_dataset=eval_dset,                                         # eval dataset
         data_collator=collator,                                         # collator
+        optimizers=(optimizer, scheduler),                               # optimizer, scheduler
         compute_metrics=compute_metrics                                 # define metrics function
     )
 
