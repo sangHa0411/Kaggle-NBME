@@ -7,9 +7,10 @@ import argparse
 import transformers
 import numpy as np
 
-
+from trainer import RdropTrainer
 from utils.loader import Loader
 from utils.encoder import Encoder
+from utils.scheduler import get_noam
 from utils.metirc import compute_metrics
 from utils.collator import DataCollatorForTraining
 
@@ -47,7 +48,7 @@ def train(args):
     # -- Encoding Dataset
     print('\nEncoding Dataset')
     column_names = dset.column_names if args.full_training else dset['train'].column_names
-    encoder = Encoder(plm=MODEL_NAME, tokenizer=tokenizer, max_length=args.max_length)
+    encoder = Encoder(tokenizer=tokenizer, max_length=args.max_length)
     dset = dset.map(encoder, batched=True, num_proc=args.num_proc, remove_columns=column_names)
     print(dset)
 
@@ -88,14 +89,14 @@ def train(args):
     # -- Optimizer & Scheduler
     epoch_steps = len(train_dset) // (args.train_batch_size * args.gradient_accumulation_steps)
     training_steps = epoch_steps * args.epochs
-    optimizer = transformers.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    scheduler = transformers.get_cosine_schedule_with_warmup(optimizer=optimizer,
+    optimizer = transformers.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.98), eps=1e-9, weight_decay=args.weight_decay)
+    scheduler = get_noam(optimizer=optimizer,
         num_warmup_steps=args.warmup_steps,
-        num_training_steps=training_steps,
+        d_model=config.hidden_size,
     )
 
     # -- Trainer
-    trainer = Trainer(
+    trainer = RdropTrainer(
         model=model,                                                    # the instantiated 🤗 Transformers model to be trained
         args=training_args,                                             # training arguments, defined above
         train_dataset=train_dset,                                       # training dataset

@@ -1,8 +1,7 @@
 import numpy as np
 
 class Encoder :
-    def __init__(self, plm, tokenizer, max_length, label_pad_token_id=-100) :
-        self.plm = plm
+    def __init__(self, tokenizer, max_length, label_pad_token_id=-100) :
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.label_pad_token_id = label_pad_token_id
@@ -28,7 +27,7 @@ class Encoder :
             annotation_length = dataset['annotation_length'][i]
             sequence_ids = model_inputs.sequence_ids(i)
 
-            start_token, end_token = self.get_positions(sequence_ids)
+            start_token, end_token = self.get_positions(sequence_ids, target_id=1)
 
             labels = np.zeros(len(sequence_ids)).astype('int')
             labels[end_token+1:] = self.label_pad_token_id
@@ -56,14 +55,14 @@ class Encoder :
         model_inputs['labels'] = model_labels
         return model_inputs
 
-    def get_positions(self, vector) :
+    def get_positions(self, vector, target_id) :
         start_token = 1
         end_token = len(vector) - 1
 
-        while (start_token < len(vector) and vector[start_token] != 1)  :
+        while (start_token < len(vector) and vector[start_token] != target_id)  :
             start_token += 1
 
-        while (end_token > 0 and vector[end_token] != 1) :
+        while (end_token > 0 and vector[end_token] != target_id) :
             end_token -= 1
 
         return start_token, end_token
