@@ -3,7 +3,7 @@ from sklearn.metrics import accuracy_score, f1_score
 
 def compute_metrics(pred):
     labels = pred.label_ids
-    predictions = np.argmax(pred.predictions, axis=-1)
+    predictions = np.where(pred.predictions > 0.5, 1.0, 0.0)
 
     label_list = []
     pred_list = []

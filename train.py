@@ -3,124 +3,110 @@ import os
 import wandb
 import torch
 import random
-import argparse
-import transformers
 import numpy as np
 
-from trainer import RdropTrainer
 from utils.loader import Loader
 from utils.encoder import Encoder
-from utils.scheduler import get_noam
 from utils.metirc import compute_metrics
-from utils.collator import DataCollatorForTraining
+from utils.preprocessor import process_features, clean_spaces
+from model.model import DebertaForTokenClassification
+
+from datasets import Dataset
+from sklearn.model_selection import StratifiedKFold
 
 from dotenv import load_dotenv
 from transformers import (AutoConfig, 
     AutoTokenizer,
-    AutoModelForTokenClassification,
+    HfArgumentParser,
     Trainer, 
-    TrainingArguments, 
+    DataCollatorWithPadding
 )
 
-def train(args):
-    # -- Checkpoint 
-    MODEL_NAME = args.PLM
-    print('Model : %s' %MODEL_NAME)
+from arguments import (ModelArguments, 
+    DataArguments, 
+    MyTrainingArguments, 
+    LoggingArguments
+)
+
+def main(args):
+    parser = HfArgumentParser(
+        (ModelArguments, DataArguments, MyTrainingArguments, LoggingArguments)
+    )
+    model_args, data_args, training_args, logging_args = parser.parse_args_into_dataclasses()
+    seed_everything(training_args.seed)
 
     # -- Loading Dataset
     print('\nLoading Dataset')    
-    loader = Loader(dir_path=args.data_dir, seed=args.seed)
-    dset = loader.get() if args.full_training else loader.split()
-    print(dset)
+    loader = Loader(dir_path=data_args.dir_path)
+    df = loader.load()
 
-    # -- Device
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    df['feature_text'] = df['feature_text'].apply(process_features)
+    df['pn_history'] = df['pn_history'].apply(clean_spaces)
+    dataset = Dataset.from_pandas(df)
+
+    case_num = dataset.pop('case_num')
 
     # -- Config & Model
     print('\nLoading Config and Model')
-    config =  AutoConfig.from_pretrained(MODEL_NAME)
+    config =  AutoConfig.from_pretrained(model_args.PLM)
     config.num_labels = 2
-    model = AutoModelForTokenClassification.from_pretrained(MODEL_NAME, config=config).to(device)
 
     # -- Tokenizing Dataset
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    tokenizer = AutoTokenizer.from_pretrained(model_args.PLM)
 
     # -- Encoding Dataset
     print('\nEncoding Dataset')
-    column_names = dset.column_names if args.full_training else dset['train'].column_names
-    encoder = Encoder(tokenizer=tokenizer, max_length=args.max_length)
-    dset = dset.map(encoder, batched=True, num_proc=args.num_proc, remove_columns=column_names)
-    print(dset)
-
-    if args.full_training == True :
-        train_dset = dset
-        eval_dset = None
-        evaluation_strategy = 'no'
-    else :
-        train_dset = dset['train']
-        eval_dset = dset['validation']
-        eval_batch_size = args.train_batch_size * args.gradient_accumulation_steps
-        evaluation_strategy = 'steps'
-
-    # -- Training Argument for training & validation
-    training_args = TrainingArguments(
-        output_dir=args.output_dir,                                     # output directory
-        overwrite_output_dir=True,                                      # overwrite output directory
-        save_total_limit=5,                                             # number of total save model.
-        save_steps=args.save_steps,                                     # model saving step.
-        num_train_epochs=args.epochs,                                   # total number of training epochs
-        learning_rate=args.lr,                                          # learning_rate
-        evaluation_strategy=evaluation_strategy,                        # evaluation_strategy strategy
-        eval_steps=args.save_steps,                                     # eval steps
-        per_device_eval_batch_size=eval_batch_size,                     # eval batch_size
-        per_device_train_batch_size=args.train_batch_size,              # batch size per device during training
-        warmup_steps=args.warmup_steps,                                 # number of warmup steps for learning rate scheduler
-        weight_decay=args.weight_decay,                                 # strength of weight decay
-        logging_dir=args.logging_dir,                                   # directory for storing logs
-        logging_steps=args.logging_steps,                               # log saving step.
-        fp16=True,                                                      # fp16 flag
-        gradient_accumulation_steps=args.gradient_accumulation_steps,   # gradient accumulation steps
-        report_to='wandb'
-    )
+    encoder = Encoder(tokenizer=tokenizer, max_length=data_args.max_length)
+    dataset = dataset.map(encoder, batched=True, num_proc=args.num_proc, remove_columns=dataset.column_names)
+    print(dataset)
 
     # -- Collator
-    collator = DataCollatorForTraining(tokenizer=tokenizer, max_length=args.max_length)
+    collator = DataCollatorWithPadding(tokenizer=tokenizer, max_length=data_args.max_length)
 
-    # -- Optimizer & Scheduler
-    epoch_steps = len(train_dset) // (args.train_batch_size * args.gradient_accumulation_steps)
-    training_steps = epoch_steps * args.epochs
-    optimizer = transformers.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.98), eps=1e-9, weight_decay=args.weight_decay)
-    scheduler = get_noam(optimizer=optimizer,
-        num_warmup_steps=args.warmup_steps,
-        d_model=config.hidden_size,
-    )
+    # -- K-fold
+    skf = StratifiedKFold(n_splits=training_args.fold_size, shuffle=True)
 
-    # -- Trainer
-    trainer = RdropTrainer(
-        model=model,                                                    # the instantiated 🤗 Transformers model to be trained
-        args=training_args,                                             # training arguments, defined above
-        train_dataset=train_dset,                                       # training dataset
-        eval_dataset=eval_dset,                                         # eval dataset
-        data_collator=collator,                                         # collator
-        optimizers=(optimizer, scheduler),                               # optimizer, scheduler
-        compute_metrics=compute_metrics                                 # define metrics function
-    )
-
-    # -- Training
-    print('Training Strats')
-    trainer.train()
-
-def main(args):
-    load_dotenv(dotenv_path=args.dotenv_path)
+    load_dotenv(dotenv_path=logging_args.dotenv_path)
     WANDB_AUTH_KEY = os.getenv('WANDB_AUTH_KEY')
     wandb.login(key=WANDB_AUTH_KEY)
 
-    train_batch_size = args.train_batch_size * args.gradient_accumulation_steps
-    wandb_name = f"EP:{args.epochs}_LR:{args.lr}_BS:{train_batch_size}_WS:{args.warmup_steps}_WD:{args.weight_decay}"
-    wandb.init(entity="sangha0411", project="kaggle - NBME", name=wandb_name, group=args.PLM)
-    wandb.config.update(args)
-    train(args)
-    wandb.finish()
+    for i, (train_ids, eval_ids) in enumerate(skf.split(dataset, case_num)):        
+        train_dataset = dataset.select(train_ids.tolist()).shuffle(training_args.seed)
+        eval_dataset = dataset.select(eval_ids.tolist()).shuffle(training_args.seed)
+
+        model = DebertaForTokenClassification.from_pretrained(model_args.PLM, config=config)
+
+        # -- Trainer
+        trainer = Trainer(
+            model=model,                                                    # the instantiated 🤗 Transformers model to be trained
+            args=training_args,                                             # training arguments, defined above
+            train_dataset=train_dataset,                                    # training dataset
+            eval_dataset=eval_dataset,                                      # eval dataset
+            data_collator=collator,                                         # collator
+            compute_metrics=compute_metrics                                 # define metrics function
+        )
+
+        # -- Training
+        print('Training Strats')
+
+        if training_args.do_train :
+            train_batch_size = training_args.per_device_train_batch_size * training_args.gradient_accumulation_steps
+            lr = training_args.learning_rate
+            epochs = training_args.num_train_epochs
+            warmup_steps = training_args.warmup_steps
+            weight_decay = training_args.weight_decay
+            wandb_name = f"EP:{epochs}_LR:{lr}_BS:{train_batch_size}_WS:{warmup_steps}_WD:{weight_decay}_fold{i+1}"
+            
+            group_name = model_args.PLM if training_args.do_eval else model_args.PLM + '-validation'
+            wandb.init(entity="sangha0411", project="kaggle-NBME", name=wandb_name, group=group_name)
+            wandb.config.update(args)
+                
+            trainer.train()
+            trainer.save_model(os.path.join(model_args.save_path, f'fold{i+1}'))
+            wandb.finish()
+
+        if training_args.do_eval :
+            break
 
 def seed_everything(seed):
     torch.manual_seed(seed)
@@ -132,41 +118,5 @@ def seed_everything(seed):
     random.seed(seed)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-
-    # -- directory
-    parser.add_argument('--output_dir', default='exp', help='trained model output directory')
-    parser.add_argument('--logging_dir', default='logs', help='logging directory')
-    parser.add_argument('--data_dir', default='data', help='train data directory path')
-    
-    # -- plm
-    parser.add_argument('--PLM', type=str, default='microsoft/deberta-large', help='model type (microsoft/deberta-large)')
-
-    # -- Data Length
-    parser.add_argument('--max_length', type=int, default=360, help='max length of tensor (default: 360)')
-    parser.add_argument('--num_proc', type=int, default=4, help='the number of processor (default: 4)')
-
-    # -- training arguments
-    parser.add_argument('--lr', type=float, default=3e-5, help='learning rate (default: 3e-5)')
-    parser.add_argument('--epochs', type=int, default=2, help='number of epochs to train (default: 2)')
-    parser.add_argument('--train_batch_size', type=int, default=2, help='train batch size (default: 2)')
-    parser.add_argument('--weight_decay', type=float, default=1e-3, help='strength of weight decay (default: 1e-3)')
-    parser.add_argument('--warmup_steps', type=int, default=200, help='number of warmup steps for learning rate scheduler (default: 200)')
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=4, help='gradient_accumulation_steps (default: 4)')
-
-    # -- save & log
-    parser.add_argument('--full_training', type=bool, default=False, help='full training flag (default: False)')
-    parser.add_argument('--save_steps', type=int, default=500, help='model save steps (default: 500)')
-    parser.add_argument('--logging_steps', type=int, default=100, help='training log steps (default: 100)')
-
-    # -- Seed
-    parser.add_argument('--seed', type=int, default=2, help='random seed (default: 2)')
-
-    # -- Wandb
-    parser.add_argument('--dotenv_path', default='path.env', help='input your dotenv path')
-
-    args = parser.parse_args()
-
-    seed_everything(args.seed)   
-    main(args)
+    main()
 

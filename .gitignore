@@ -1,4 +1,4 @@
 data/*.csv
-tokenizer
+*.ipynb
 path.env
 .DS_store
