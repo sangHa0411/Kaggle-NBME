@@ -28,4 +28,4 @@ def compute_metrics(pred):
     label_indices = list(range(2))
     acc = accuracy_score(label_list, pred_list)
     f1 = f1_score(label_list, pred_list, average="micro", labels=label_indices) * 100.0
-    return {'F1 Score' : f1, 'Accuracy' : acc}
+    return {'F1' : f1, 'Accuracy' : acc}
