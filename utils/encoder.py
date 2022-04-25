@@ -2,9 +2,9 @@ import numpy as np
 
 class Encoder :
 
-    def __init__(self, tokenizer, max_input_length=512, label_pad_token_id=-100) :
+    def __init__(self, tokenizer, max_length=512, label_pad_token_id=-100) :
         self.tokenizer = tokenizer 
-        self.max_input_length = max_input_length
+        self.max_length = max_length
         self.label_pad_token_id = label_pad_token_id
 
     def __call__(self, dataset) :
@@ -13,7 +13,7 @@ class Encoder :
             add_special_tokens=True,
             return_offsets_mapping=True,
             return_token_type_ids=False,
-            max_length=self.max_input_length,
+            max_length=self.max_length,
             truncation='only_second',
         )
        

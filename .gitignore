@@ -1,4 +1,9 @@
 data/*.csv
 *.ipynb
-path.env
+wandb.env
+running.sh
+wandb
+exp
+checkpoints
 .DS_store
+__pycache__

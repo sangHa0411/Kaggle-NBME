@@ -47,19 +47,22 @@ class DebertaForTokenClassification(DebertaPreTrainedModel):
         )
 
         sequence_output = outputs[0]
+        batch_size = len(sequence_output)
 
         sequence_output = self.dropout(sequence_output)
         logits = self.classifier(sequence_output)
 
         loss = None
         if labels is not None:
-            if self.num_labels > 2 :
+            if self.num_labels > 1 :
                 loss_fct = CrossEntropyLoss()
                 loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
-            elif self.num_labels == 2 :
-                loss_fct = BCEWithLogitsLoss()
+            elif self.num_labels == 1 :
+                loss_fct = BCEWithLogitsLoss(reduction='none')
                 loss = loss_fct(logits.view(-1,), labels.view(-1,))
-                
+                loss = torch.where(labels.view(-1,)==-100.0, 0.0, loss.double())
+                loss = torch.mean(loss.view(batch_size,-1), dim=1).mean()
+
         if not return_dict:
             output = (logits,) + outputs[1:]
             return ((loss,) + output) if loss is not None else output

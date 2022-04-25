@@ -8,6 +8,7 @@ import numpy as np
 from utils.loader import Loader
 from utils.encoder import Encoder
 from utils.metirc import compute_metrics
+from utils.collator import DataCollatorWithPadding
 from utils.preprocessor import process_features, clean_spaces
 from model.model import DebertaForTokenClassification
 
@@ -19,7 +20,6 @@ from transformers import (AutoConfig,
     AutoTokenizer,
     HfArgumentParser,
     Trainer, 
-    DataCollatorWithPadding
 )
 
 from arguments import (ModelArguments, 
@@ -28,7 +28,7 @@ from arguments import (ModelArguments,
     LoggingArguments
 )
 
-def main(args):
+def main():
     parser = HfArgumentParser(
         (ModelArguments, DataArguments, MyTrainingArguments, LoggingArguments)
     )
@@ -37,19 +37,20 @@ def main(args):
 
     # -- Loading Dataset
     print('\nLoading Dataset')    
-    loader = Loader(dir_path=data_args.dir_path)
-    df = loader.load()
+    loader = Loader()
+    df = loader.load(dir_path=data_args.dir_path)
 
     df['feature_text'] = df['feature_text'].apply(process_features)
     df['pn_history'] = df['pn_history'].apply(clean_spaces)
     dataset = Dataset.from_pandas(df)
+    dataset = dataset.remove_columns(["id", "pn_num", "feature_num", "annotation", "__index_level_0__"])
 
-    case_num = dataset.pop('case_num')
+    case_num = dataset['case_num']
 
     # -- Config & Model
     print('\nLoading Config and Model')
     config =  AutoConfig.from_pretrained(model_args.PLM)
-    config.num_labels = 2
+    config.num_labels = 1
 
     # -- Tokenizing Dataset
     tokenizer = AutoTokenizer.from_pretrained(model_args.PLM)
@@ -57,7 +58,7 @@ def main(args):
     # -- Encoding Dataset
     print('\nEncoding Dataset')
     encoder = Encoder(tokenizer=tokenizer, max_length=data_args.max_length)
-    dataset = dataset.map(encoder, batched=True, num_proc=args.num_proc, remove_columns=dataset.column_names)
+    dataset = dataset.map(encoder, batched=True, num_proc=data_args.preprocessing_num_workers, remove_columns=dataset.column_names)
     print(dataset)
 
     # -- Collator
@@ -99,10 +100,12 @@ def main(args):
             
             group_name = model_args.PLM if training_args.do_eval else model_args.PLM + '-validation'
             wandb.init(entity="sangha0411", project="kaggle-NBME", name=wandb_name, group=group_name)
-            wandb.config.update(args)
+            wandb.config.update(training_args)
                 
             trainer.train()
             trainer.save_model(os.path.join(model_args.save_path, f'fold{i+1}'))
+            trainer.evaluate()
+            
             wandb.finish()
 
         if training_args.do_eval :

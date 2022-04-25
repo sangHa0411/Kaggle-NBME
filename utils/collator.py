@@ -7,7 +7,7 @@ from transformers.file_utils import PaddingStrategy
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 @dataclass
-class DataCollatorForTraining:
+class DataCollatorWithPadding:
     tokenizer: PreTrainedTokenizerBase
     padding: Union[bool, str, PaddingStrategy] = True
     max_length: Optional[int] = None

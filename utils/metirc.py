@@ -3,14 +3,16 @@ from sklearn.metrics import accuracy_score, f1_score
 
 def compute_metrics(pred):
     labels = pred.label_ids
+
     predictions = np.where(pred.predictions > 0.5, 1.0, 0.0)
+    predictions = predictions.squeeze(-1)
 
     label_list = []
     pred_list = []
 
     batch_size, seq_size = labels.shape
+    
     for i in range(batch_size) :
-
         label_ids = labels[i]
         prediction_ids = predictions[i]
 

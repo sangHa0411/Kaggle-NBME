@@ -3,8 +3,8 @@ import ast
 import pandas as pd
 
 class Loader :
-    def __init__(self, dir_path) :
-        self.df = self.load(dir_path)
+    def __init__(self, ) :
+        pass
 
     def load(self, dir_path) :
         train_df = pd.read_csv(os.path.join(dir_path, 'train.csv'))
@@ -22,4 +22,5 @@ class Loader :
         df['location'] = df['location'].apply(ast.literal_eval)
         df['annotation_length'] = df['annotation'].apply(len)
         return df
+
 

@@ -11,11 +11,12 @@ class ModelArguments :
         },
     )
     save_path: str = field(
-        default="./checkpoints",
+        default="checkpoints",
         metadata={
-            "help": "Path to save checkpoint from fine tune model"
+            "help": "Path to save checkpoint from fine-tuning model"
         },
     )
+
     
 @dataclass
 class DataArguments:
@@ -32,7 +33,7 @@ class DataArguments:
         }
     )
     dir_path: str = field(
-        default='./data',
+        default='data',
         metadata={
             "help": "Path to data directory"
         }
@@ -52,7 +53,7 @@ class MyTrainingArguments(TrainingArguments):
 @dataclass
 class LoggingArguments:
     dotenv_path: Optional[str] = field(
-        default='./wandb.env',
+        default='wandb.env',
         metadata={"help":'input your dotenv path'},
     )
     project_name: Optional[str] = field(
